@@ -1,3 +1,4 @@
+#include <opencv2/core.hpp>
 #include <opencv2/opencv.hpp>
 #include <sys/time.h>
 
@@ -25,6 +26,7 @@ int main() {
 
   // Create the OpenCV window
   cv::namedWindow("Camera", cv::WINDOW_AUTOSIZE);
+  cv::namedWindow("Output", cv::WINDOW_AUTOSIZE);
   cv::Mat frame;
 
   // Measure the frame rate - initialise variables
@@ -34,14 +36,34 @@ int main() {
   cv::Mat hsv_frame;
 
   // Create the thresholding window
+  cv::namedWindow("Control", cv::WINDOW_AUTOSIZE);
+  int iLowH = 0;
+  int iHighH = 179;
+
+  int iLowS = 0;
+  int iHighS = 255;
+
+  int iLowV = 0;
+  int iHighV = 255;
+  int morphSize = 3;
+
+  // Create trackbars in "Control" window
+  cv::createTrackbar("LowH", "Control", &iLowH, 179); // Hue (0 - 179)
+  cv::createTrackbar("HighH", "Control", &iHighH, 179);
+
+  cv::createTrackbar("LowS", "Control", &iLowS, 255); // Saturation (0 - 255)
+  cv::createTrackbar("HighS", "Control", &iHighS, 255);
+
+  cv::createTrackbar("LowV", "Control", &iLowV, 255); // Value (0 - 255)
+  cv::createTrackbar("HighV", "Control", &iHighV, 255);
+
+  cv::createTrackbar("MorphSize", "Control", &morphSize, 10);
 
   for (;;) {
     if (!cap.read(frame)) {
       printf("Could not read a frame.\n");
       break;
     }
-    // Convert it into hsv format
-    cv::cvtColor(frame, hsv_frame, cv::COLOR_BGR2HSV);
 
     /*
      * Do the operations on the frame
@@ -50,10 +72,33 @@ int main() {
      * - Locate centre of mass, and print to terminal
      * - Convert to HSV colour space
      * - Create a control window
-    */
+     */
+
+    // Convert it into hsv format
+    cv::cvtColor(frame, hsv_frame, cv::COLOR_BGR2HSV);
+
+    // Threshold the image
+    cv::Mat thresh_img;
+    cv::inRange(hsv_frame, cv::Scalar(iLowH, iLowS, iLowV),
+                cv::Scalar(iHighH, iHighS, iHighV), thresh_img);
+
+    // Perform the morphological operations
+    cv::morphologyEx(thresh_img, thresh_img, cv::MORPH_CLOSE,
+                     cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
+    cv::morphologyEx(thresh_img, thresh_img, cv::MORPH_OPEN,
+                     cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
+
+    // Find the center of mass
+    cv::Moments m = cv::moments(thresh_img, true);
+    if (m.m00 > 0) {
+      double x = m.m10 / m.m00;
+      double y = m.m11 / m.m00;
+      printf("Centre of mass was (%f, %f)\n", x, y);
+    }
 
     // show frame
     cv::imshow("Camera", frame);
+    cv::imshow("Output", thresh_img);
     cv::waitKey(1);
 
     // Measure the frame rate
