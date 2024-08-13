@@ -92,7 +92,7 @@ int main() {
     cv::Moments m = cv::moments(thresh_img, true);
     if (m.m00 > 0) {
       double x = m.m10 / m.m00;
-      double y = m.m11 / m.m00;
+      double y = m.m01 / m.m00;
       printf("Centre of mass was (%f, %f)\n", x, y);
     }
 
